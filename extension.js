@@ -4,7 +4,20 @@ const vscode = require('vscode');
 let fs = require("fs");
 const CSS_LINK_TAG_REGEX = /<.*?rel="stylesheet".*?href=".*?.css".*?>|<.*?href=".*?.css".*?rel="stylesheet".*?>/gm;
 const CSS_FILE_NAME_REGEX = /(?<=href=").*?(?=")/gm;
-const CURRENT_FOLDER = editor.document.uri.path.substring(1).match(/.*(?<=\/)/gm)[0];
+const CURRENT_FOLDER_REGEX = /.*(?<=\/)/gm;
+
+const findCSSPath = (HTML_DATA) => {
+  const STYLE_LINK = HTML_DATA.match(CSS_LINK_TAG_REGEX)[0];
+  const CSS_FILE_NAME = STYLE_LINK.match(CSS_FILE_NAME_REGEX)[0];
+  const PATH_TO_CSS = CURRENT_FOLDER + CSS_FILE_NAME;
+  return PATH_TO_CSS;
+}
+
+const mergeHTMLCSS = (HTML_DATA, CSS_CODE) => {
+  const SPLITTED_HTML_DATA = HTML_DATA.split("<head>");
+  const EXPORT_HTML_CODE = SPLITTED_HTML_DATA[0] + "<head>\n" + "<style>\n" + CSS_CODE + "</style>\n" + SPLITTED_HTML_DATA[1];
+  return EXPORT_HTML_CODE;
+}
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -17,20 +30,18 @@ function activate(context) {
   let disposable = vscode.commands.registerCommand('internal-css.bundle', function () {
     // vscode.window.showInformationMessage('Hello World from Internal CSS!');
     let editor = vscode.window.activeTextEditor;
+    const CURRENT_FILE_PATH = editor.document.uri.path.substring(1);
+    const CURRENT_FOLDER = CURRENT_FILE_PATH.match(CURRENT_FOLDER_REGEX)[0];
+    const EXPORT_FILE_NAME = CURRENT_FOLDER + "index1.html";
     try {
-      const data = fs.readFileSync(editor.document.uri.path.substring(1), 'utf8');
-      let style_link = data.match(CSS_LINK_TAG_REGEX)[0];
-      let css_file_name = style_link.match(CSS_FILE_NAME_REGEX)[0];
-      let path_to_css = CURRENT_FOLDER + css_file_name;
-      let css = fs.readFileSync(path_to_css, 'utf8');
-      const splitted_data = data.split("<head>");
-      const export_data = splitted_data[0] + "<head>\n" + "<style>\n" + css + "</style>\n" + splitted_data[1];
-      const export_file_name = CURRENT_FOLDER + "index1.html";
-      fs.writeFile(export_file_name, export_data, function (err) {
+      const HTML_DATA = fs.readFileSync(CURRENT_FILE_PATH, 'utf8');
+      let PATH_TO_CSS = findCSSPath(HTML_DATA);
+      let CSS_CODE = fs.readFileSync(PATH_TO_CSS, 'utf8');
+      const EXPORT_HTML_CODE = mergeHTMLCSS(HTML_DATA, CSS_CODE);
+      fs.writeFile(EXPORT_FILE_NAME, EXPORT_HTML_CODE, function (err) {
         if (err) {
           return console.log(err);
         }
-        console.log("The file was saved!");
       });
     } catch (err) {
       console.log(err);
